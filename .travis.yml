@@ -3,7 +3,7 @@ dist: trusty
 script: mvn test
 addons:
   sonarcloud:
-    organization: "shibir07"
+    organization: "shibir7"
     token:
       secure: "${var.token}" # encrypted value of your token
 script:
