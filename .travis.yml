@@ -18,7 +18,7 @@ env:
   global:
     - AWS_REGION="us-east-1"
     - APPLICATION_NAME="Access-Management-API"
-    - ENVIRONMENT=`if [[ "$TRAVIS_BRANCH" =~ ^release.*$ ]]; then echo "Uat-V2"; elif [[ "$TRAVIS_BRANCH" = "master" ]]; then echo "Prod-Env-V-One"; else echo "Dev-Env-V2"; fi`
+    - ENVIRONMENT=`if [[ "$TRAVIS_BRANCH" =develop ]]; then echo "Uat-V2"; elif [[ "$TRAVIS_BRANCH" = "master" ]]; then echo "Prod-Env-V-One"; else echo "Dev-Env-V2"; fi`
     - MEMORY=1024
     - HOST_PORT=8200
     - CONTAINER_PORT=3000
