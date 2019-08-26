@@ -29,11 +29,8 @@ before_install:
   - python --version
   - sudo apt-get install -y python-dev libffi-dev libssl-dev
   - pip install --user awscli
-  - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-  - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
   - npm i -g typings nodemon typescript tsd npm-cli-login
-  - npm-cli-login -u $NPM_USER -p $NPM_PASS -e $NPM_EMAIL -r $NPM_REGISTRY -s $NPM_SCOPE
-  - npm config set registry $NPM_REGISTRY
+  
 install:
   - npm install --registry $NPM_REGISTRY
 branches:
@@ -44,7 +41,7 @@ branches:
 stages:
   - test
   - name: deliver & deploy
-    if: repo = tandfgroup/access-mgmt
+    if: repo = shibir07/TravisDemo07
         AND type != pull_request
         AND branch = master
             OR branch = develop
