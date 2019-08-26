@@ -1,16 +1,76 @@
-language: java
 dist: trusty
-script: mvn test
+sudo: required
+language: node_js
+node_js:
+  - "8"
+cache:
+  directories:
+    - "$HOME/.sonar/cache"
+    - ~/.npm
+    - node_modules
+  npm: true
+git:
+  depth: false
 addons:
   sonarcloud:
-    organization: "shibir07"
-    token:
-      secure: "**************************" # encrypted value of your token
-
-script:
-  # the following command line builds the project, runs the tests with coverage and then execute the SonarCloud analysis
-  - mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent install sonar:sonar -Dsonar.projectKey=shibir07_TravisDemo07
-
-
-script: 
-  - ./deploy.sh 
+    organization: tandfgroup
+env:
+  global:
+    - AWS_REGION="us-east-1"
+    - APPLICATION_NAME="Access-Management-API"
+    - ENVIRONMENT=`if [[ "$TRAVIS_BRANCH" =~ ^release.*$ ]]; then echo "Uat-V2"; elif [[ "$TRAVIS_BRANCH" = "master" ]]; then echo "Prod-Env-V-One"; else echo "Dev-Env-V2"; fi`
+    - MEMORY=1024
+    - HOST_PORT=8200
+    - CONTAINER_PORT=3000
+before_install:
+  - sudo add-apt-repository -y ppa:jonathonf/python-2.7
+  - sudo apt-get update
+  - sudo apt-get install -y python2.7
+  - python --version
+  - sudo apt-get install -y python-dev libffi-dev libssl-dev
+  - pip install --user awscli
+  - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+  - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+  - npm i -g typings nodemon typescript tsd npm-cli-login
+  - npm-cli-login -u $NPM_USER -p $NPM_PASS -e $NPM_EMAIL -r $NPM_REGISTRY -s $NPM_SCOPE
+  - npm config set registry $NPM_REGISTRY
+install:
+  - npm install --registry $NPM_REGISTRY
+branches:
+  only:
+    - develop #DEV
+    - /^release\/.*$/ #UAT
+    - master #PROD
+stages:
+  - test
+  - name: deliver & deploy
+    if: repo = tandfgroup/access-mgmt
+        AND type != pull_request
+        AND branch = master
+            OR branch = develop
+            OR branch =~ /^release.*$/
+jobs:
+  include:
+    - stage: test
+      name: test
+      script:
+        - npm run typings
+        - npm run build
+        - sonar-scanner
+    - stage: deliver & deploy
+      name: deliver & deploy to ECS & EBS
+      script:
+        - npm run typings
+        - npm run build
+        - aws s3 cp --recursive s3://common-build-dependencies/platform-core/access-mgmt/ .
+        - eval $(aws ecr get-login --region ${AWS_REGION} --no-include-email)
+        - export REPO="${AWS_ACCOUNT_NUMBER}.dkr.ecr.${AWS_REGION}.amazonaws.com/access-mgmt-api"
+        - echo "APPLICATION_NAME:"$APPLICATION_NAME > ApplicationManifest.txt
+        - echo "TAG:"$APPLICATION_NAME-$ENVIRONMENT-$TRAVIS_BUILD_NUMBER >> ApplicationManifest.txt
+        - echo "DATE:"$(date) >> ApplicationManifest.txt
+        - docker build -f Dockerfile -t $REPO:$ENVIRONMENT-$TRAVIS_BUILD_NUMBER .
+        - docker push $REPO:$ENVIRONMENT-$TRAVIS_BUILD_NUMBER
+        - sed -i 's|{{APPLICATION_NAME}}|'$APPLICATION_NAME'|g' ebextensions/.ebextensions/99pre_deploy_job.config
+        - export TAG=$REPO:${ENVIRONMENT}-$TRAVIS_BUILD_NUMBER
+        - export VERSION_LABEL=$APPLICATION_NAME-${ENVIRONMENT}-$TRAVIS_BUILD_NUMBER
+        - bash deploy.sh
